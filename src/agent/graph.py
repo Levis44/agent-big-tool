@@ -1,54 +1,20 @@
-"""LangGraph single-node graph template.
+from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph, START, MessagesState
+from langchain_core.messages import SystemMessage
 
-Returns a predefined response. Replace logic and configuration as needed.
-"""
+llm = ChatOpenAI(model="gpt-4o") 
 
-from __future__ import annotations
+# System message
+sys_msg = SystemMessage(content="You are a helpful assistant tasked with writing performing arithmetic on a set of inputs.")
 
-from dataclasses import dataclass
-from typing import Any, Dict, TypedDict
+# Node
+def assistant(state: MessagesState):
+   return {"messages": [llm.invoke([sys_msg] + state["messages"])]}
 
-from langchain_core.runnables import RunnableConfig
-from langgraph.graph import StateGraph
+# Build graph
+builder = StateGraph(MessagesState)
 
+builder.add_node("assistant", assistant)
+builder.add_edge(START, "assistant")
 
-class Configuration(TypedDict):
-    """Configurable parameters for the agent.
-
-    Set these when creating assistants OR when invoking the graph.
-    See: https://langchain-ai.github.io/langgraph/cloud/how-tos/configuration_cloud/
-    """
-
-    my_configurable_param: str
-
-
-@dataclass
-class State:
-    """Input state for the agent.
-
-    Defines the initial structure of incoming data.
-    See: https://langchain-ai.github.io/langgraph/concepts/low_level/#state
-    """
-
-    changeme: str = "example"
-
-
-async def call_model(state: State, config: RunnableConfig) -> Dict[str, Any]:
-    """Process input and returns output.
-
-    Can use runtime configuration to alter behavior.
-    """
-    configuration = config["configurable"]
-    return {
-        "changeme": "output from call_model. "
-        f'Configured with {configuration.get("my_configurable_param")}'
-    }
-
-
-# Define the graph
-graph = (
-    StateGraph(State, config_schema=Configuration)
-    .add_node(call_model)
-    .add_edge("__start__", "call_model")
-    .compile(name="New Graph")
-)
+graph = builder.compile()
